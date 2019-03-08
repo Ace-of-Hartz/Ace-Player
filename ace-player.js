@@ -1,14 +1,27 @@
 $(function () {
+  var $mouseDown = null;
+  $(document).mouseup(function () {
+    if ($mouseDown) {
+      $mouseDown.resume();
+      $mouseDown = null;
+    }
+  });
+  $(document).mousemove(function (e) {
+    if ($mouseDown) {
+      $mouseDown.seek(e);
+    }
+  });
+
   var idCounter = 0;
 
   function _initiateAcePlayer(player) {
-    var _this = this;
+    var _this = {};
     var $player = $(player);
 
-    this.source = $player.attr("src");
-    this.type = $player.attr("type");
-    this.poster = $player.attr("poster");
-    this.autoplay = $player.attr("autoplay") != null;
+    _this.source = $player.attr("src");
+    _this.type = $player.attr("type");
+    _this.poster = $player.attr("poster");
+    _this.autoplay = $player.attr("autoplay") != null;
 
     var _repeat = $player.attr("repeat") != null;
 
@@ -35,49 +48,47 @@ $(function () {
     var $muteBtn = $("#mute-" + idCounter);
     var $loopBtn = $("#loop-" + idCounter);
     var $playPauseBtn = $("#play-pause-" + idCounter);
-    var seekBar = _seekBar($("#seekbar-" + idCounter));
+    var seekBar = _seekBar($("#seekbar-" + idCounter), _this);
     var $videoShield = $("#video-shield-" + idCounter);
 
     // ==== State Properties ====
-    Object.defineProperty(this, 'isLoaded', { get: function () { return $video.readyState === 4; } });
-    Object.defineProperty(this, 'isPlaying', { get: function () { return !!($video.currentTime > 0 && !$video.paused && !$video.ended && $video.readyState > 2); } });
+    Object.defineProperty(_this, 'isLoaded', { get: function () { return $video.readyState === 4; } });
+    Object.defineProperty(_this, 'isPlaying', { get: function () { return !!($video.currentTime > 0 && !$video.paused && !$video.ended && $video.readyState > 2); } });
 
-    Object.defineProperty(this, 'isMuted', {
+    Object.defineProperty(_this, 'isMuted', {
       get: function () { return $video.muted; },
       set: function (shouldMute) { $video.muted = shouldMute; }
     });
-    Object.defineProperty(this, 'isLooping', {
+    Object.defineProperty(_this, 'isLooping', {
       get: function () { return $video.loop; },
       set: function (shouldLoop) { $video.loop = shouldLoop; }
     });
 
-    var _shouldShowCurrentTime = true;
-
     // ==== Custom Events ====
 
-    this.videoLoaded = new Event('videoLoaded');
+    _this.videoLoaded = new Event('videoLoaded');
 
     // ==== Functions ====
 
-    this.play = function () {
-      if (isLoaded) {
+    _this.play = function () {
+      if (_this.isLoaded) {
         $video.play();
       }
     }
 
-    this.pause = function () {
-      if (isLoaded) {
+    _this.pause = function () {
+      if (_this.isLoaded) {
         $video.pause();
       }
     }
 
-    this.togglePlayPause = function () {
-      if (isPlaying) { pause(); }
-      else { play(); }
+    _this.togglePlayPause = function () {
+      if (_this.isPlaying) { _this.pause(); }
+      else { _this.play(); }
     }
 
-    this.toggleMute = function () { isMuted = !isMuted; }
-    this.toggleLoop = function () { isLooping = !isLooping; }
+    _this.toggleMute = function () { _this.isMuted = !_this.isMuted; }
+    _this.toggleLoop = function () { _this.isLooping = !_this.isLooping; }
 
     // private 
 
@@ -88,7 +99,7 @@ $(function () {
           if ($video.readyState === 4) {
             window.clearInterval(interval);
             interval = null;
-            _this.dispatchEvent(videoLoaded);
+            this.dispatchEvent(_this.videoLoaded);
             resolve(true);
           }
         }, 100);
@@ -108,34 +119,38 @@ $(function () {
 
     // ==== Events ====
 
-    $muteBtn.click(function () { toggleMute(); });
-    $loopBtn.click(function () { toggleLoop(); isLooping });
-    $playPauseBtn.click(function () { togglePlayPause(); });
+    $muteBtn.click(function () { _this.toggleMute(); });
+    $loopBtn.click(function () { _this.toggleLoop(); });
+    $playPauseBtn.click(function () { _this.togglePlayPause(); });
 
     this.addEventListener('videoLoaded', function () {
-      setShield();
-      isLooping = _repeat;
-      if (autoplay) { play(); }
+      setTimeout(function () {
+        setShield();
+        _this.isLooping = _repeat;
+        if (_this.autoplay) { _this.play(); }
+      }, 100);
     });
 
     // ==== Load/init Video =====
 
-    if (source && type) {
-      $source.attr('src', source);
-      $source.attr('type', type);
+    if (_this.source && _this.type) {
+      $source.attr('src', _this.source);
+      $source.attr('type', _this.type);
       load();
     }
 
-    if (poster) {
-      $video.attr("poster", _poster);
+    if (_this.poster) {
+      $video.attr("poster", _this.poster);
     }
 
     // ==== Return Object ====
 
-    return this;
+    return _this;
   }
 
-  function _seekBar(seekBar) {
+  function _seekBar(seekBar, parentPlayer) {
+    var _this = {};
+
     var $seekBar = $(seekBar);
     var $video = $($seekBar.attr('data-video-id'))[0];
     var _count = $seekBar.attr('data-count');
@@ -155,53 +170,47 @@ $(function () {
     var $seekbarPosition = $("#seekbar-position-" + _count);
     var $seekbarHandle = $("#seekbar-handle-" + _count);
 
-    var _shouldShowCurrentTime = true;
-    var _isMouseDown = false;
+    Object.defineProperty(_this, 'leftOfBar', { get: function () { return $seekbarLength.offset().left; } });
+    Object.defineProperty(_this, 'widthOfBar', { get: function () { return $seekbarLength.width(); } });
 
-    Object.defineProperty(this, 'leftOfBar', { get: function () { return $seekbarLength.offset().left; } });
-    Object.defineProperty(this, 'widthOfBar', { get: function () { return $seekbarLength.width(); } });
-
-    this.max = 0;
-    this.currentTime = 0;
-
-    $(document).mousedown(function () { _isMouseDown = true; });
-    $(document.mouseup(function () { _isMouseDown = false; });
+    _this.max = 0;
+    _this.currentTime = 0;
 
     $video.onloadedmetadata = function () {
-      max = $video.duration;
+      _this.max = $video.duration;
     };
     $video.ontimeupdate = function () {
-      if (_shouldShowCurrentTime) {
-        _updateTime($video.currentTime);
-      }
+      _updateTime($video.currentTime);
     };
 
     $seekbarLength.mousedown(function (e) {
-      $video.currentTime = (e.offsetX / widthOfBar) * max;
-      _isMouseDown = true;
-    });
-    $seekbarLength.mouseup(function (e) {
-      _isMouseDown = false;
-      _shouldShowCurrentTime = true;
-    });
-    $seekbarLength.mousemove(function (e) {
-      console.log(e);
-      _shouldShowCurrentTime = !_isMouseDown;
-      if (_isMouseDown) {
-        $video.pause();
-        var time = (e.offsetX / widthOfBar) * max;
-        _updateTime(time);
-      }
+      _this.wasPlaying = parentPlayer.isPlaying;
+      parentPlayer.pause();
+      _this.seek(e);
+      $mouseDown = _this;
     });
 
-    // $seek.change(function () { $video.currentTime = $seek.val(); });
+    _this.resume = function () {
+      if(_this.wasPlaying) {
+        parentPlayer.play();
+      }
+    }
+
+    _this.seek = function (e) {
+      var calculatedTime = ((e.pageX - $seekBar.position().left) / _this.widthOfBar) * _this.max;
+      if (calculatedTime < 0) { calculatedTime = 0; }
+      else if (calculatedTime >= _this.max) { calculatedTime = _this.max - .01; }
+      $video.currentTime = calculatedTime;
+    }
 
     function _updateTime(_currentTime) {
       currentTime = _currentTime;
-      var percentage = ((currentTime / max) * 100) + "%";
+      var percentage = ((currentTime / _this.max) * 100) + "%";
       $seekbarPosition.css('width', percentage);
       $seekbarHandle.css('left', percentage);
     }
+
+    return this;
   }
 
   //============== INIT ===============
