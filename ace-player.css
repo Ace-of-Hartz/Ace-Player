@@ -1,0 +1,68 @@
+.video-wrapper,
+.video-wrapper *, 
+.video-wrapper *::before,
+.video-wrapper *::after {
+    box-sizing: border-box;
+}
+
+.video-wrapper {
+    width: 500px;
+}
+
+.ace-video {
+    width: 100%;
+}
+
+.ace-video,
+.video-shield {
+    pointer-events: none;
+}
+
+/*   Seek bar   */
+
+.seekbar-wrapper,
+.seekbar-length,
+.seekbar-buffer,
+.seekbar-position {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.seekbar-wrapper {
+    height: .25em;
+}
+
+.seekbar-length {
+    height: 100%;
+    background-color: black;
+}
+
+.seekbar-buffer,
+.seekbar-position {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 0;
+}
+
+.seekbar-buffer {
+    background-color: gray;
+}
+
+.seekbar-position {
+    background-color: red;
+}
+
+.seekbar-handle {
+    position: absolute;
+    background-color: red;
+    border-radius: 100%;
+    height: .5em;;
+    width: .5em;
+    transform: translateX(-50%) translateY(-25%);
+}
+
+
+
