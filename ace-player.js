@@ -1,14 +1,21 @@
 $(function () {
   var $mouseDown = null;
+  var _throttler = new throttler();
+
   $(document).mouseup(function () {
     if ($mouseDown) {
       $mouseDown.resume();
       $mouseDown = null;
     }
   });
+
   $(document).mousemove(function (e) {
     if ($mouseDown) {
-      $mouseDown.seek(e);
+      _throttler.throttle(function () {
+        if ($mouseDown) {
+          $mouseDown.seek(e);
+        }
+      }, 10);
     }
   });
 
@@ -36,20 +43,31 @@ $(function () {
           <div id="video-shield-${idCounter}" class="video-shield"></div>
           <div id="controls-${idCounter}" class="controls">
             <ace-seekbar id="seekbar-${idCounter}" data-count="${idCounter}" data-video-id="#video-${idCounter}"></ace-seekbar>
+            <button id="skip-back-${idCounter}" class="skip-back">Back</button>
+            <button id="play-pause-${idCounter}" class="play-pause-control">Play/Pause</button>
+            <button id="fast-forward-${idCounter}" class="fastforward">Fast Forward</button>
+            <button id="skip-forward-${idCounter}" class="skip-forward">Skip Forward</button>
             <button id="mute-${idCounter}" class="mute-control">Mute</button>
             <button id="loop-${idCounter}" class="loop-control">Loop</button>
-            <button id="play-pause-${idCounter}" clas="play-pause-control">Play/Pause</button>
           </div>
         </div>
     `);
 
     var $video = $("#video-" + idCounter)[0];
     var $source = $("#source-" + idCounter);
+    var $videoShield = $("#video-shield-" + idCounter);
+
+    var seekBar = _seekBar($("#seekbar-" + idCounter), _this);
+
+    var $skipBackBtn = $("#skip-back-" + idCounter);
+    var $playPauseBtn = $("#play-pause-" + idCounter);
+    var $ffBtn = $("#fast-forward-" + idCounter);
+    var $skipForwardBtn = $("#skip-forward-" + idCounter);
+
     var $muteBtn = $("#mute-" + idCounter);
     var $loopBtn = $("#loop-" + idCounter);
-    var $playPauseBtn = $("#play-pause-" + idCounter);
-    var seekBar = _seekBar($("#seekbar-" + idCounter), _this);
-    var $videoShield = $("#video-shield-" + idCounter);
+
+    var _skipAmount = 0;
 
     // ==== State Properties ====
     Object.defineProperty(_this, 'isLoaded', { get: function () { return $video.readyState === 4; } });
@@ -87,6 +105,12 @@ $(function () {
       else { _this.play(); }
     }
 
+    _this.skipBack = function() { $video.currentTime = Math.max($video.currentTime - _skipAmount, 0); }
+    _this.skipForward = function() { $video.currentTime = Math.min($video.currentTime + _skipAmount, $video.duration); }
+
+    _this.fastForward = function() { $video.playbackRate = 3; }
+    _this.resetPlaybackRate = function() { $video.playbackRate = 1; }
+
     _this.toggleMute = function () { _this.isMuted = !_this.isMuted; }
     _this.toggleLoop = function () { _this.isLooping = !_this.isLooping; }
 
@@ -119,16 +143,24 @@ $(function () {
 
     // ==== Events ====
 
+    $skipBackBtn.click(function() { _this.skipBack(); });
+    $skipForwardBtn.click(function() { _this.skipForward(); });
+
+    $ffBtn.mousedown(function() { _this.fastForward(); });
+    $ffBtn.mouseup(function() { _this.resetPlaybackRate(); });
+
+    $playPauseBtn.click(function () { _this.togglePlayPause(); });
+    
     $muteBtn.click(function () { _this.toggleMute(); });
     $loopBtn.click(function () { _this.toggleLoop(); });
-    $playPauseBtn.click(function () { _this.togglePlayPause(); });
 
     this.addEventListener('videoLoaded', function () {
       setTimeout(function () {
         setShield();
         _this.isLooping = _repeat;
+        _skipAmount = ($video.duration / 20);
         if (_this.autoplay) { _this.play(); }
-      }, 100);
+      }, 200);
     });
 
     // ==== Load/init Video =====
@@ -174,7 +206,6 @@ $(function () {
     Object.defineProperty(_this, 'widthOfBar', { get: function () { return $seekbarLength.width(); } });
 
     _this.max = 0;
-    _this.currentTime = 0;
 
     $video.onloadedmetadata = function () {
       _this.max = $video.duration;
@@ -184,16 +215,21 @@ $(function () {
     };
 
     $seekbarLength.mousedown(function (e) {
-      _this.wasPlaying = parentPlayer.isPlaying;
-      parentPlayer.pause();
-      _this.seek(e);
-      $mouseDown = _this;
+        if (e.which == 1) {
+          if(_this.wasPlaying == null){
+            _this.wasPlaying = parentPlayer.isPlaying;
+          }
+          parentPlayer.pause();
+          _this.seek(e);
+          $mouseDown = _this;
+        }
     });
 
     _this.resume = function () {
-      if(_this.wasPlaying) {
+      if (_this.wasPlaying) {
         parentPlayer.play();
       }
+      _this.wasPlaying = null;
     }
 
     _this.seek = function (e) {

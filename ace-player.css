@@ -34,6 +34,7 @@
 }
 
 .seekbar-length {
+    cursor: pointer;
     height: 100%;
     background-color: black;
 }
